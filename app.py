@@ -6,6 +6,7 @@ import random
 import time
 from pathlib import Path
 import base64
+import os
 
 # Initialize session state variables
 if 'submissions' not in st.session_state:
@@ -16,7 +17,9 @@ if 'show_thank_you' not in st.session_state:
 
 def create_qr_code():
     """Generate QR code for the survey URL."""
-    img = qrcode.make('http://localhost:8501')  # Replace with actual deployment URL
+    # Use environment variable for URL, fallback to localhost for development
+    url = os.getenv('STREAMLIT_URL', 'http://localhost:8501')
+    img = qrcode.make(url)
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     return buffered.getvalue()
