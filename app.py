@@ -7,11 +7,79 @@ import time
 from pathlib import Path
 import base64
 import os
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import json
+
+# Initialize Google Sheets connection
+@st.cache_resource
+def init_google_sheets():
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=['https://www.googleapis.com/auth/spreadsheets']
+    )
+    service = build('sheets', 'v4', credentials=credentials)
+    return service
+
+def get_sheet_data():
+    """Get all responses from Google Sheets."""
+    try:
+        service = init_google_sheets()
+        sheet = service.spreadsheets()
+        
+        # Get all data from the sheet
+        result = sheet.values().get(
+            spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
+            range='A:G'  # Adjust range based on your columns
+        ).execute()
+        
+        values = result.get('values', [])
+        if not values:
+            return pd.DataFrame(columns=[
+                'workshops', 'massage_oil_rating', 'muscle_spray_rating',
+                'future_interests', 'email', 'whatsapp', 'feedback'
+            ])
+            
+        df = pd.DataFrame(values[1:], columns=values[0])
+        return df
+    except Exception as e:
+        st.error(f"Error reading from Google Sheets: {str(e)}")
+        return pd.DataFrame()
+
+def append_to_sheet(data):
+    """Append a new response to Google Sheets."""
+    try:
+        service = init_google_sheets()
+        sheet = service.spreadsheets()
+        
+        values = [[
+            data['workshops'],
+            data['massage_oil_rating'],
+            data['muscle_spray_rating'],
+            data['future_interests'],
+            data['email'],
+            data['whatsapp'],
+            data['feedback']
+        ]]
+        
+        body = {
+            'values': values
+        }
+        
+        # Append the data
+        sheet.values().append(
+            spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
+            range='A:G',  # Adjust range based on your columns
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        
+        return True
+    except Exception as e:
+        st.error(f"Error writing to Google Sheets: {str(e)}")
+        return False
 
 # Initialize session state variables
-if 'submissions' not in st.session_state:
-    st.session_state.submissions = []
-    
 if 'show_thank_you' not in st.session_state:
     st.session_state.show_thank_you = False
 
@@ -26,8 +94,8 @@ def create_qr_code():
 
 def check_existing_contact(email, whatsapp):
     """Check if email or WhatsApp number already exists in responses."""
-    if Path('responses.csv').exists():
-        df = pd.read_csv('responses.csv')
+    df = get_sheet_data()
+    if not df.empty:
         if email in df['email'].values:
             return False, "Dit e-mailadres is al gebruikt voor een eerdere inzending."
         if whatsapp in df['whatsapp'].values:
@@ -35,29 +103,26 @@ def check_existing_contact(email, whatsapp):
     return True, ""
 
 def save_response(data):
-    """Save survey response to CSV file."""
+    """Save survey response to Google Sheets."""
     is_valid, error_message = check_existing_contact(data['email'], data['whatsapp'])
     
     if not is_valid:
         st.error(error_message)
         return False
         
-    df = pd.DataFrame([data])
-    if Path('responses.csv').exists():
-        df.to_csv('responses.csv', mode='a', header=False, index=False)
-    else:
-        df.to_csv('responses.csv', index=False)
-    st.session_state.submissions.append(data)
-    st.session_state.show_thank_you = True
-    return True
+    if append_to_sheet(data):
+        st.session_state.show_thank_you = True
+        return True
+    return False
 
 def spin_wheel():
     """Animate spinning wheel effect and select winner."""
-    if not st.session_state.submissions:
+    df = get_sheet_data()
+    if df.empty:
         st.error("Geen deelnemers beschikbaar voor de trekking.")
         return
     
-    participants = [sub['email'] for sub in st.session_state.submissions]
+    participants = df['email'].tolist()
     placeholder = st.empty()
     
     # Spinning animation
@@ -141,9 +206,9 @@ def main():
             spin_wheel()
         
         # Display all participants
-        if st.session_state.submissions:
+        df = get_sheet_data()
+        if not df.empty:
             st.write("### Deelnemers:")
-            df = pd.DataFrame(st.session_state.submissions)
             st.dataframe(df[['email', 'whatsapp']])
     
     with tab3:
