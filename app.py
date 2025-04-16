@@ -30,7 +30,7 @@ def get_sheet_data():
         # Get all data from the sheet
         result = sheet.values().get(
             spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
-            range='A:H'  # Adjust range based on your columns
+            range='A:H'  # Include all 8 columns including feedback
         ).execute()
         
         values = result.get('values', [])
@@ -91,7 +91,7 @@ def append_to_sheet(data):
         # Append the data
         sheet.values().append(
             spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
-            range='A:H',  # Adjust range based on your columns
+            range='A:H',  # Include all 8 columns including feedback
             valueInputOption='RAW',
             body=body
         ).execute()
