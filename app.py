@@ -17,8 +17,8 @@ if 'show_thank_you' not in st.session_state:
 
 def create_qr_code():
     """Generate QR code for the survey URL."""
-    # Use environment variable for URL, fallback to localhost for development
-    url = os.getenv('STREAMLIT_URL', 'http://localhost:8501')
+    # Use production URL or fallback to localhost for development
+    url = 'https://javaanse-rituelen-en-recepten.streamlit.app'
     img = qrcode.make(url)
     buffered = BytesIO()
     img.save(buffered, format="PNG")
