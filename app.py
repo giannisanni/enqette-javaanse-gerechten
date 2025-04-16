@@ -30,14 +30,14 @@ def get_sheet_data():
         # Get all data from the sheet
         result = sheet.values().get(
             spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
-            range='A:G'  # Adjust range based on your columns
+            range='A:H'  # Adjust range based on your columns
         ).execute()
         
         values = result.get('values', [])
         if not values:
             return pd.DataFrame(columns=[
                 'workshops', 'massage_oil_rating', 'muscle_spray_rating',
-                'future_interests', 'email', 'whatsapp', 'feedback'
+                'future_interests', 'name', 'email', 'whatsapp', 'feedback'
             ])
             
         df = pd.DataFrame(values[1:], columns=values[0])
@@ -57,6 +57,7 @@ def append_to_sheet(data):
             data['massage_oil_rating'],
             data['muscle_spray_rating'],
             data['future_interests'],
+            data['name'],
             data['email'],
             data['whatsapp'],
             data['feedback']
@@ -69,7 +70,7 @@ def append_to_sheet(data):
         # Append the data
         sheet.values().append(
             spreadsheetId=st.secrets["sheets"]["spreadsheet_id"],
-            range='A:G',  # Adjust range based on your columns
+            range='A:H',  # Adjust range based on your columns
             valueInputOption='RAW',
             body=body
         ).execute()
@@ -122,7 +123,7 @@ def spin_wheel():
         st.error("Geen deelnemers beschikbaar voor de trekking.")
         return
     
-    participants = df['email'].tolist()
+    participants = [f"{row['name']} ({row['email']})" for _, row in df.iterrows()]
     placeholder = st.empty()
     
     # Spinning animation
@@ -164,6 +165,7 @@ def main():
             
             # Contact information
             st.write("4. Contactgegevens")
+            name = st.text_input("Naam:")
             email = st.text_input("E-mailadres:")
             whatsapp = st.text_input("WhatsApp-nummer:")
             
@@ -171,6 +173,10 @@ def main():
             feedback = st.text_area("5. Feedback of opmerkingen")
             
             if st.button("Verstuur"):
+                if not name:  # Name validation
+                    st.error("Vul alstublieft uw naam in.")
+                    return
+
                 if not email or not whatsapp:  # Basic validation
                     st.error("Vul alstublieft uw e-mailadres en WhatsApp-nummer in.")
                     return
@@ -188,6 +194,7 @@ def main():
                     'massage_oil_rating': massage_oil,
                     'muscle_spray_rating': muscle_spray,
                     'future_interests': ', '.join(future_interests),
+                    'name': name,
                     'email': email,
                     'whatsapp': whatsapp,
                     'feedback': feedback
@@ -209,7 +216,7 @@ def main():
         df = get_sheet_data()
         if not df.empty:
             st.write("### Deelnemers:")
-            st.dataframe(df[['email', 'whatsapp']])
+            st.dataframe(df[['name', 'email', 'whatsapp']])
     
     with tab3:
         st.write("## QR Code")
