@@ -36,3 +36,4 @@ ENV/
 # Project specific
 responses.csv
 .DS_Store
+.streamlit/secrets.toml
