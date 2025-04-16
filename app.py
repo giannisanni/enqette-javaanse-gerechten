@@ -39,8 +39,29 @@ def get_sheet_data():
                 'workshops', 'massage_oil_rating', 'muscle_spray_rating',
                 'future_interests', 'name', 'email', 'whatsapp', 'feedback'
             ])
-            
-        df = pd.DataFrame(values[1:], columns=values[0])
+        
+        # Ensure we have header row
+        if len(values) < 1:
+            st.error("Geen kolomkoppen gevonden in de spreadsheet.")
+            return pd.DataFrame()
+        
+        # Get header row and data rows
+        headers = values[0]
+        data_rows = values[1:] if len(values) > 1 else []
+        
+        # Create DataFrame with explicit column names
+        df = pd.DataFrame(data_rows, columns=[
+            'workshops', 'massage_oil_rating', 'muscle_spray_rating',
+            'future_interests', 'name', 'email', 'whatsapp', 'feedback'
+        ])
+        
+        # Verify expected columns exist
+        expected_columns = ['name', 'email']
+        missing_columns = [col for col in expected_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"Ontbrekende kolommen in spreadsheet: {', '.join(missing_columns)}")
+            return pd.DataFrame()
+        
         return df
     except Exception as e:
         st.error(f"Error reading from Google Sheets: {str(e)}")
@@ -123,18 +144,35 @@ def spin_wheel():
         st.error("Geen deelnemers beschikbaar voor de trekking.")
         return
     
-    participants = [f"{row['name']} ({row['email']})" for _, row in df.iterrows()]
-    placeholder = st.empty()
+    # Ensure required columns exist
+    if 'name' not in df.columns or 'email' not in df.columns:
+        st.error("Vereiste kolommen 'name' en 'email' niet gevonden in de gegevens.")
+        return
     
-    # Spinning animation
-    for _ in range(20):
-        placeholder.markdown(f"## 🎯 {random.choice(participants)}")
-        time.sleep(0.1)
-    
-    # Show winner
-    winner = random.choice(participants)
-    placeholder.markdown(f"## 🎉 Winnaar: {winner}")
-    return winner
+    # Create list of participants
+    try:
+        participants = [f"{row['name']} ({row['email']})" for _, row in df.iterrows()]
+        if not participants:
+            st.error("Geen deelnemers gevonden in de gegevens.")
+            return
+
+        placeholder = st.empty()
+        
+        # Spinning animation
+        for _ in range(20):
+            placeholder.markdown(f"## 🎯 {random.choice(participants)}")
+            time.sleep(0.1)
+        
+        # Show winner
+        winner = random.choice(participants)
+        placeholder.markdown(f"## 🎉 Winnaar: {winner}")
+        return winner
+    except KeyError as e:
+        st.error(f"Fout bij het inlezen van deelnemersgegevens: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Er is een fout opgetreden: {str(e)}")
+        return None
 
 def main():
     st.title("Javaanse Rituelen en Recepten - Enquête")
